@@ -1,28 +1,23 @@
 {
   "version": 2,
-  "buildCommand": "echo 'No build needed'",
-  "installCommand": "npm install --prefix . --production",
-  "framework": null,
   "builds": [
     {
       "src": "server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "server.js"
-    },
-    {
-      "handle": "filesystem"
+      "dest": "/server.js"
     },
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "github": {
-    "silent": true
-  }
+  ]
 }
