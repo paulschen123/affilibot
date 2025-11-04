@@ -4,15 +4,13 @@
   "description": "Affiliate Marketing Automation Dashboard",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'No build needed'"
   },
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "sqlite3": "^5.1.7",
     "axios": "^1.6.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
