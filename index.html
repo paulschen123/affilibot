@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AffilBot - Affiliate Marketing Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #111827;
+            color: #f3f4f6;
+        }
+        .app-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        h1 { color: white; font-size: 2rem; }
+        .header-actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+        .btn {
+            padding: 0.5rem 1.5rem;
+            border: 2px solid white;
+            background: transparent;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .btn.active { background: white; color: #667eea; }
+        .btn:hover { transform: translateY(-2px); }
+        .warning-banner {
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            font-weight: 600;
+        }
+        .main-content { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: #1f2937;
+            padding: 1.5rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .stat-icon { font-size: 2.5rem; }
+        .stat-info h3 { font-size: 0.875rem; color: #9ca3af; margin-bottom: 0.5rem; }
+        .stat-value { font-size: 1.875rem; font-weight: 700; }
+        .section {
+            background: #1f2937;
+            padding: 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .primary-button {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .primary-button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .offers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .offer-card {
+            background: #111827;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #374151;
+        }
+        .offer-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .offer-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            text-transform: uppercase;
+        }
+        .status-pending { background: #f59e0b; }
+        .status-approved { background: #10b981; }
+        .status-posted { background: #3b82f6; }
+        .offer-title { font-size: 1.125rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .offer-commission {
+            padding: 1rem;
+            background: #1f2937;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        .commission-value { font-size: 1.5rem; font-weight: 700; color: #10b981; }
+        .offer-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .approve-button { flex: 1; padding: 0.75rem; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .reject-button { flex: 1; padding: 0.75rem; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .instagram-button {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #e1306c 0%, #fd1d1d 50%, #f77737 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        .posted-badge {
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #9ca3af;
+        }
+        @media (max-width: 768px) {
+            .main-content { padding: 1rem; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .offers-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-content">
+            <h1>🚀 AffilBot</h1>
+            <div class="header-actions">
+                <button class="btn" id="autoPostBtn">📸 Auto-Post OFF</button>
+                <button class="btn" id="automationBtn">✅ Automation ON</button>
+            </div>
+        </div>
+    </header>
+
+    <div id="warningBanner" style="display:none;" class="warning-banner">
+        ⚠️ Instagram API not configured. Set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID to enable posting.
+    </div>
+
+    <main class="main-content">
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-info">
+                    <h3>Total Earnings</h3>
+                    <div class="stat-value" id="totalEarnings">€0.00</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-info">
+                    <h3>Active Offers</h3>
+                    <div class="stat-value" id="activeOffers">0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📱</div>
+                <div class="stat-info">
+                    <h3>Posts This Week</h3>
+                    <div class="stat-value" id="postsThisWeek">0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👁️</div>
+                <div class="stat-info">
+                    <h3>Total Views</h3>
+                    <div class="stat-value" id="totalViews">0</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-header">
+                <h2>📋 Affiliate Offers</h2>
+                <button class="primary-button" id="findOffersBtn">🔍 Find New Offers</button>
+            </div>
+            <div class="offers-grid" id="offersContainer">
+                <div class="empty-state">Click "Find New Offers" to discover opportunities!</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API_URL = window.location.origin;
+        let autoPostEnabled = false;
+        let automationEnabled = true;
+        let instagramConfigured = false;
+
+        async function loadData() {
+            try {
+                const [stats, offers, settings, igStatus] = await Promise.all([
+                    fetch(`${API_URL}/api/stats`).then(r => r.json()),
+                    fetch(`${API_URL}/api/offers`).then(r => r.json()),
+                    fetch(`${API_URL}/api/settings`).then(r => r.json()),
+                    fetch(`${API_URL}/api/instagram/status`).then(r => r.json())
+                ]);
+
+                document.getElementById('totalEarnings').textContent = `€${stats.totalEarnings?.toFixed(2) || '0.00'}`;
+                document.getElementById('activeOffers').textContent = stats.activeOffers || 0;
+                document.getElementById('postsThisWeek').textContent = stats.postsThisWeek || 0;
+                document.getElementById('totalViews').textContent = (stats.totalViews || 0).toLocaleString();
+
+                automationEnabled = settings.automation_enabled === 'true';
+                autoPostEnabled = settings.auto_post_enabled === 'true';
+                instagramConfigured = igStatus.configured;
+
+                updateButtons();
+                renderOffers(offers);
+
+                if (!instagramConfigured) {
+                    document.getElementById('warningBanner').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        function updateButtons() {
+            const autoPostBtn = document.getElementById('autoPostBtn');
+            const automationBtn = document.getElementById('automationBtn');
+
+            autoPostBtn.textContent = autoPostEnabled ? '📸 Auto-Post ON' : '📸 Auto-Post OFF';
+            autoPostBtn.className = autoPostEnabled ? 'btn active' : 'btn';
+
+            automationBtn.textContent = automationEnabled ? '✅ Automation ON' : '❌ Automation OFF';
+            automationBtn.className = automationEnabled ? 'btn active' : 'btn';
+        }
+
+        function renderOffers(offers) {
+            const container = document.getElementById('offersContainer');
+            if (!offers || offers.length === 0) {
+                container.innerHTML = '<div class="empty-state">No offers yet. Click "Find New Offers"!</div>';
+                return;
+            }
+
+            container.innerHTML = offers.map(offer => `
+                <div class="offer-card">
+                    <div class="offer-header">
+                        <span class="offer-status status-${offer.status}">${offer.status}</span>
+                        <span>${offer.network}</span>
+                    </div>
+                    <h3 class="offer-title">${offer.title}</h3>
+                    <p style="color:#9ca3af;font-size:0.875rem;margin-bottom:1rem">${offer.category}</p>
+                    <div class="offer-commission">
+                        <span>Commission:</span>
+                        <span class="commission-value">€${offer.commission.toFixed(2)}</span>
+                    </div>
+                    ${offer.status === 'pending' ? `
+                        <div class="offer-actions">
+                            <button class="approve-button" onclick="updateStatus(${offer.id}, 'approved')">✅ Approve</button>
+                            <button class="reject-button" onclick="updateStatus(${offer.id}, 'rejected')">❌ Reject</button>
+                        </div>
+                    ` : ''}
+                    ${offer.status === 'approved' ? `
+                        <button class="instagram-button" onclick="postToInstagram(${offer.id})">📸 Post to Instagram</button>
+                    ` : ''}
+                    ${offer.status === 'posted' ? `
+                        <div class="posted-badge">✅ Posted to Instagram</div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function updateStatus(id, status) {
+            try {
+                await fetch(`${API_URL}/api/offers/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                await loadData();
+            } catch (error) {
+                alert('Error updating offer');
+            }
+        }
+
+        async function postToInstagram(id) {
+            if (!instagramConfigured) {
+                alert('Instagram not configured!');
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/api/posts/instagram`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ offer_id: id })
+                });
+                const data = await res.json();
+                alert(data.success ? '✅ Posted to Instagram!' : `❌ ${data.error}`);
+                await loadData();
+            } catch (error) {
+                alert('Error posting to Instagram');
+            }
+        }
+
+        document.getElementById('findOffersBtn').addEventListener('click', async () => {
+            try {
+                const btn = document.getElementById('findOffersBtn');
+                btn.disabled = true;
+                btn.textContent = '🔍 Searching...';
+                const res = await fetch(`${API_URL}/api/automation/scrape-offers`, { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                await loadData();
+                btn.disabled = false;
+                btn.textContent = '🔍 Find New Offers';
+            } catch (error) {
+                alert('Error finding offers');
+            }
+        });
+
+        document.getElementById('autoPostBtn').addEventListener('click', async () => {
+            if (!instagramConfigured && !autoPostEnabled) {
+                alert('Instagram not configured!');
+                return;
+            }
+            autoPostEnabled = !autoPostEnabled;
+            await fetch(`${API_URL}/api/settings/auto_post_enabled`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value: autoPostEnabled.toString() })
+            });
+            updateButtons();
+            alert(autoPostEnabled ? '✅ Auto-posting enabled!' : '⏸️ Auto-posting disabled');
+        });
+
+        document.getElementById('automationBtn').addEventListener('click', async () => {
+            automationEnabled = !automationEnabled;
+            await fetch(`${API_URL}/api/settings/automation_enabled`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value: automationEnabled.toString() })
+            });
+            updateButtons();
+        });
+
+        loadData();
+        setInterval(loadData, 30000);
+    </script>
+</body>
+</html>
