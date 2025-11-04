@@ -11,6 +11,10 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Instagram Configuration
+const INSTAGRAM_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN || '';
+const INSTAGRAM_BUSINESS_ACCOUNT_ID = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID || '';
+
 // Database setup
 const db = new sqlite3.Database('./affilibot.db', (err) => {
   if (err) {
@@ -37,6 +41,7 @@ function initDatabase() {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     offer_id INTEGER,
     content TEXT NOT NULL,
+    instagram_post_id TEXT,
     views INTEGER DEFAULT 0,
     likes INTEGER DEFAULT 0,
     comments INTEGER DEFAULT 0,
@@ -53,6 +58,57 @@ function initDatabase() {
   // Insert default settings
   db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('min_commission', '3.50')`);
   db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('automation_enabled', 'true')`);
+  db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('auto_post_enabled', 'false')`);
+}
+
+// Helper: Generate Instagram post caption
+function generatePostCaption(offer) {
+  return `🔥 Amazing Deal Alert! 🔥
+
+${offer.title}
+
+💰 Earn €${offer.commission.toFixed(2)} commission!
+🏢 Network: ${offer.network}
+📂 Category: ${offer.category}
+
+Check it out now! Limited time offer 🚀
+
+#affiliate #deals #savings #${offer.category.toLowerCase().replace(/ /g, '')} #affiliatemarketing #earnmoney`;
+}
+
+// Helper: Post to Instagram
+async function postToInstagram(caption) {
+  if (!INSTAGRAM_ACCESS_TOKEN || !INSTAGRAM_BUSINESS_ACCOUNT_ID) {
+    throw new Error('Instagram credentials not configured. Please set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID in environment variables.');
+  }
+
+  try {
+    // Create container (text-only post)
+    const containerResponse = await axios.post(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_BUSINESS_ACCOUNT_ID}/media`,
+      {
+        media_type: 'TEXT',
+        text: caption,
+        access_token: INSTAGRAM_ACCESS_TOKEN
+      }
+    );
+
+    const creationId = containerResponse.data.id;
+
+    // Publish the post
+    const publishResponse = await axios.post(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_BUSINESS_ACCOUNT_ID}/media_publish`,
+      {
+        creation_id: creationId,
+        access_token: INSTAGRAM_ACCESS_TOKEN
+      }
+    );
+
+    return publishResponse.data.id;
+  } catch (error) {
+    console.error('Instagram API Error:', error.response?.data || error.message);
+    throw new Error(error.response?.data?.error?.message || 'Failed to post to Instagram');
+  }
 }
 
 // API Routes
@@ -133,6 +189,39 @@ app.patch('/api/offers/:id', (req, res) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
+
+      // If approved and auto-post is enabled, automatically post to Instagram
+      if (status === 'approved') {
+        db.get('SELECT value FROM settings WHERE key = "auto_post_enabled"', async (err, row) => {
+          if (!err && row && row.value === 'true') {
+            // Get offer details
+            db.get('SELECT * FROM offers WHERE id = ?', [id], async (err, offer) => {
+              if (!err && offer) {
+                try {
+                  const caption = generatePostCaption(offer);
+                  const instagramPostId = await postToInstagram(caption);
+
+                  // Create post record
+                  db.run(
+                    'INSERT INTO posts (offer_id, content, instagram_post_id) VALUES (?, ?, ?)',
+                    [id, caption, instagramPostId],
+                    function(err) {
+                      if (!err) {
+                        // Update offer status to posted
+                        db.run('UPDATE offers SET status = "posted" WHERE id = ?', [id]);
+                        console.log(`Auto-posted offer ${id} to Instagram: ${instagramPostId}`);
+                      }
+                    }
+                  );
+                } catch (error) {
+                  console.error('Auto-post failed:', error.message);
+                }
+              }
+            });
+          }
+        });
+      }
+
       res.json({ id, status });
     }
   );
@@ -167,7 +256,7 @@ app.get('/api/posts', (req, res) => {
   });
 });
 
-// Create new post
+// Create new post (manual posting)
 app.post('/api/posts', (req, res) => {
   const { offer_id, content, views, likes, comments } = req.body;
 
@@ -192,6 +281,61 @@ app.post('/api/posts', (req, res) => {
       });
     }
   );
+});
+
+// Manual post to Instagram
+app.post('/api/posts/instagram', async (req, res) => {
+  const { offer_id } = req.body;
+
+  try {
+    // Get offer details
+    db.get('SELECT * FROM offers WHERE id = ?', [offer_id], async (err, offer) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (!offer) {
+        return res.status(404).json({ error: 'Offer not found' });
+      }
+
+      try {
+        // Generate caption
+        const caption = generatePostCaption(offer);
+
+        // Post to Instagram
+        const instagramPostId = await postToInstagram(caption);
+
+        // Save post to database
+        db.run(
+          'INSERT INTO posts (offer_id, content, instagram_post_id) VALUES (?, ?, ?)',
+          [offer_id, caption, instagramPostId],
+          function(err) {
+            if (err) {
+              return res.status(500).json({ error: err.message });
+            }
+
+            // Update offer status to posted
+            db.run('UPDATE offers SET status = "posted" WHERE id = ?', [offer_id]);
+
+            res.json({
+              success: true,
+              message: 'Posted to Instagram successfully!',
+              post_id: this.lastID,
+              instagram_post_id: instagramPostId,
+              caption: caption
+            });
+          }
+        );
+      } catch (error) {
+        res.status(500).json({ 
+          error: error.message,
+          details: 'Make sure INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID are set in environment variables'
+        });
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Get settings
@@ -290,6 +434,17 @@ app.post('/api/automation/scrape-offers', (req, res) => {
   });
 });
 
+// Check Instagram connection status
+app.get('/api/instagram/status', (req, res) => {
+  const configured = !!(INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_BUSINESS_ACCOUNT_ID);
+  res.json({
+    configured: configured,
+    message: configured 
+      ? 'Instagram API is configured and ready' 
+      : 'Instagram API not configured. Set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID environment variables.'
+  });
+});
+
 // Serve static files from React build
 app.use(express.static(path.join(__dirname, 'client/build')));
 
@@ -299,4 +454,5 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`AffilBot server running on port ${PORT}`);
+  console.log(`Instagram API configured: ${!!(INSTAGRAM_ACCESS_TOKEN && INSTAGRAM_BUSINESS_ACCOUNT_ID)}`);
 });
