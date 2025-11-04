@@ -8,7 +8,10 @@ function App() {
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('offers');
   const [automationEnabled, setAutomationEnabled] = useState(true);
+  const [autoPostEnabled, setAutoPostEnabled] = useState(false);
+  const [instagramConfigured, setInstagramConfigured] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [postingId, setPostingId] = useState(null);
   const [darkMode, setDarkMode] = useState(true);
 
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -18,6 +21,7 @@ function App() {
     fetchOffers();
     fetchPosts();
     fetchSettings();
+    checkInstagramStatus();
   }, []);
 
   const fetchStats = async () => {
@@ -51,8 +55,18 @@ function App() {
     try {
       const response = await axios.get(`${API_URL}/api/settings`);
       setAutomationEnabled(response.data.automation_enabled === 'true');
+      setAutoPostEnabled(response.data.auto_post_enabled === 'true');
     } catch (error) {
       console.error('Error fetching settings:', error);
+    }
+  };
+
+  const checkInstagramStatus = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/instagram/status`);
+      setInstagramConfigured(response.data.configured);
+    } catch (error) {
+      console.error('Error checking Instagram status:', error);
     }
   };
 
@@ -61,8 +75,30 @@ function App() {
       await axios.patch(`${API_URL}/api/offers/${id}`, { status: action });
       fetchOffers();
       fetchStats();
+      fetchPosts(); // Refresh posts in case auto-post happened
     } catch (error) {
       console.error('Error updating offer:', error);
+    }
+  };
+
+  const handlePostToInstagram = async (offerId) => {
+    if (!instagramConfigured) {
+      alert('Instagram API is not configured. Please set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID in your environment variables.');
+      return;
+    }
+
+    setPostingId(offerId);
+    try {
+      const response = await axios.post(`${API_URL}/api/posts/instagram`, { offer_id: offerId });
+      alert(`✅ ${response.data.message}`);
+      fetchOffers();
+      fetchStats();
+      fetchPosts();
+    } catch (error) {
+      console.error('Error posting to Instagram:', error);
+      alert(`❌ Failed to post: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setPostingId(null);
     }
   };
 
@@ -93,6 +129,24 @@ function App() {
     }
   };
 
+  const toggleAutoPost = async () => {
+    if (!instagramConfigured && !autoPostEnabled) {
+      alert('Instagram API is not configured. Please set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID first.');
+      return;
+    }
+
+    const newValue = !autoPostEnabled;
+    try {
+      await axios.put(`${API_URL}/api/settings/auto_post_enabled`, { 
+        value: newValue.toString() 
+      });
+      setAutoPostEnabled(newValue);
+      alert(newValue ? '✅ Auto-posting enabled! Approved offers will automatically post to Instagram.' : '⏸️ Auto-posting disabled.');
+    } catch (error) {
+      console.error('Error toggling auto-post:', error);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch(status) {
       case 'pending': return '#f59e0b';
@@ -110,6 +164,13 @@ function App() {
           <h1>🚀 AffilBot</h1>
           <div className="header-actions">
             <button 
+              className={`automation-toggle ${autoPostEnabled ? 'active' : ''}`}
+              onClick={toggleAutoPost}
+              title={instagramConfigured ? 'Toggle automatic Instagram posting' : 'Instagram not configured'}
+            >
+              {autoPostEnabled ? '📸 Auto-Post ON' : '📸 Auto-Post OFF'}
+            </button>
+            <button 
               className={`automation-toggle ${automationEnabled ? 'active' : ''}`}
               onClick={toggleAutomation}
             >
@@ -124,6 +185,12 @@ function App() {
           </div>
         </div>
       </header>
+
+      {!instagramConfigured && (
+        <div className="warning-banner">
+          ⚠️ Instagram API not configured. Set INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID to enable posting.
+        </div>
+      )}
 
       <main className="main-content">
         <section className="stats-section">
@@ -226,6 +293,24 @@ function App() {
                           </button>
                         </div>
                       )}
+
+                      {offer.status === 'approved' && (
+                        <div className="offer-actions">
+                          <button 
+                            className="instagram-button"
+                            onClick={() => handlePostToInstagram(offer.id)}
+                            disabled={postingId === offer.id}
+                          >
+                            {postingId === offer.id ? '📤 Posting...' : '📸 Post to Instagram'}
+                          </button>
+                        </div>
+                      )}
+
+                      {offer.status === 'posted' && (
+                        <div className="posted-badge">
+                          ✅ Posted to Instagram
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -249,6 +334,11 @@ function App() {
                     <div key={post.id} className="post-card">
                       <h3 className="post-title">{post.offer_title || 'Instagram Post'}</h3>
                       <p className="post-content">{post.content}</p>
+                      {post.instagram_post_id && (
+                        <div className="instagram-link">
+                          <span className="instagram-badge">📸 Live on Instagram</span>
+                        </div>
+                      )}
                       <div className="post-stats">
                         <div className="post-stat">
                           <span>👁️ {post.views.toLocaleString()}</span>
